@@ -29,20 +29,24 @@ import com.google.common.eventbus.Subscribe;
 import com.google.inject.Provides;
 import javax.inject.Inject;
 import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.input.KeyListener;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+
+import java.awt.event.KeyEvent;
 
 @PluginDescriptor(
 	name = "Bank Value",
 	description = "Show the value of your bank and/or current tab",
 	tags = {"grand", "exchange", "high", "alchemy", "prices"}
 )
-public class BankValuePlugin extends Plugin
+public class BankValuePlugin extends Plugin implements KeyListener
 {
 	@Inject
 	private Client client;
@@ -62,6 +66,8 @@ public class BankValuePlugin extends Plugin
 		return configManager.getConfig(BankValueConfig.class);
 	}
 
+	private boolean forceRefresh;
+
 	@Override
 	protected void shutDown()
 	{
@@ -78,21 +84,72 @@ public class BankValuePlugin extends Plugin
 			return;
 		}
 
-		bankTitle.save();
-		calculate(widgetBankTitleBar);
-		bankTitle.update(bankCalculation.getGePrice(), bankCalculation.getHaPrice());
-	}
-
-	private void calculate(Widget bankTitleBar)
-	{
-		// Don't update on a search because rs seems to constantly update the title
-		if (bankTitleBar == null ||
-			bankTitleBar.isHidden() ||
-			bankTitleBar.getText().contains("Showing"))
+		if (bankTitle.save(forceRefresh && chatboxFocused()))
 		{
-			return;
+            forceRefresh = false;
+			bankCalculation.calculate();
+			bankTitle.update(bankCalculation.getGePrice(), bankCalculation.getHaPrice());
 		}
-
-		bankCalculation.calculate();
 	}
+
+    boolean chatboxFocused()
+    {
+        Widget chatboxParent = client.getWidget(WidgetInfo.CHATBOX_INPUT);
+        if (chatboxParent == null || chatboxParent.getOnKeyListener() == null)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e)
+    {
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e)
+    {
+
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e)
+    {
+        if (client.getGameState() != GameState.LOGGED_IN)
+        {
+            return;
+        }
+
+        forceRefresh = true;
+        /* Remove inputs if we're typing
+        if (plugin.chatboxFocused())
+        {
+            Integer m = modified.get(e.getKeyCode());
+            if (m != null)
+            {
+                modified.remove(e.getKeyCode());
+            }
+        }
+        else
+        {
+            if (config.up().matches(e))
+            {
+                e.setKeyCode(KeyEvent.VK_UP);
+            }
+            else if (config.down().matches(e))
+            {
+                e.setKeyCode(KeyEvent.VK_DOWN);
+            }
+            else if (config.left().matches(e))
+            {
+                e.setKeyCode(KeyEvent.VK_LEFT);
+            }
+            else if (config.right().matches(e))
+            {
+                e.setKeyCode(KeyEvent.VK_RIGHT);
+            }
+        }*/
+    }
 }

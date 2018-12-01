@@ -38,12 +38,14 @@ class BankTitle
 	private final BankValueConfig config;
 
 	private String bankTitle;
-
+	private String strCurrentTab;
+	private boolean triggerRefresh;
 	@Inject
 	BankTitle(Client client, BankValueConfig config)
 	{
 		this.client = client;
 		this.config = config;
+		triggerRefresh = false;
 	}
 
 	void reset()
@@ -58,37 +60,49 @@ class BankTitle
 		widgetBankTitleBar.setText(bankTitle);
 	}
 
-	void save()
+	boolean save(boolean forceRefresh)
 	{
 		Widget widgetBankTitleBar = client.getWidget(WidgetInfo.BANK_TITLE_BAR);
 
 		// Only save if the title hasn't been modified
-		// Don't update on a search because rs seems to constantly update the title
 		if (widgetBankTitleBar == null ||
 				widgetBankTitleBar.isHidden() ||
 				widgetBankTitleBar.getText().contains("(") ||
-				widgetBankTitleBar.getText().contains("Showing"))
+				widgetBankTitleBar.getText() == bankTitle ||
+				widgetBankTitleBar.getText() == bankTitle + strCurrentTab ||
+				chatboxFocused())
+		// chatbox focused and is trigger a refresh per
 		{
-			return;
+			return false;
 		}
 
+		//log.debug("save ", bankTitle);
 		bankTitle = widgetBankTitleBar.getText();
+		log.debug("Setting bank title: {}", bankTitle);
+		return true;
+	}
+
+	boolean chatboxFocused()
+	{
+		Widget chatboxParent = client.getWidget(WidgetInfo.CHATBOX_FULL_INPUT);
+		if (chatboxParent == null || chatboxParent.getOnKeyListener() == null || chatboxParent.getText().contains("Show"))
+		{
+			return false;
+		}
+
+		return true;
 	}
 
 	void update(long gePrice, long haPrice)
 	{
 		Widget widgetBankTitleBar = client.getWidget(WidgetInfo.BANK_TITLE_BAR);
 
-		// Don't update on a search because rs seems to constantly update the title
-		if (widgetBankTitleBar == null ||
-				widgetBankTitleBar.isHidden() ||
-				widgetBankTitleBar.getText().contains("Showing") ||
-				widgetBankTitleBar.getText().contains("("))
+		if (widgetBankTitleBar == null)
 		{
 			return;
 		}
 
-		String strCurrentTab = "";
+		strCurrentTab = "";
 
 		if (config.showGE() && gePrice != 0)
 		{
